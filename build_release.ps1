@@ -2,8 +2,8 @@
 # build_release.ps1
 # Builds a production release of Pomodoro Timer for Windows.
 # Outputs:
-#   - d:\Projects\EAII\pomodoro-phoenix\PomodoroTimer\       (full distribution)
-#   - d:\Projects\EAII\pomodoro-phoenix\PomodoroTimer.exe   (root launcher with icon)
+#   - <workspaceRoot>\PomodoroTimer\       (full distribution)
+#   - <workspaceRoot>\PomodoroTimer.exe   (root launcher with icon)
 
 $ErrorActionPreference = "Stop"
 
@@ -109,9 +109,9 @@ if (Test-Path $relBat) {
     Write-Host "    Migrations executed safely; user data and progress preserved." -ForegroundColor Green
 }
 
-# ── Step 5: Deploy Release to pomodoro-phoenix Root ─────────────────────────
+# ── Step 5: Deploy Release Package to Workspace Root ─────────────────────────
 Write-Host ""
-Write-Host "[5/6] Deploying release package to pomodoro-phoenix root..." -ForegroundColor Yellow
+Write-Host "[5/6] Deploying release package to workspace root..." -ForegroundColor Yellow
 
 if (Test-Path $destRelease) {
     Write-Host "    Stopping any running PomodoroTimer instances..." -ForegroundColor DarkGray
@@ -248,7 +248,7 @@ if ($csc) {
     Write-Host "    Found .NET C# compiler: $csc" -ForegroundColor DarkGray
     $iconAbs = (Resolve-Path $iconPath).Path
 
-    # 1. Compile root launcher: d:\Projects\EAII\pomodoro-phoenix\PomodoroTimer.exe
+    # 1. Compile root launcher executable
     & $csc /nologo /optimize+ /target:winexe /win32icon:"$iconAbs" /out:"$rootLauncher" /r:System.Windows.Forms.dll "$tempCs"
     if ($LASTEXITCODE -ne 0) { throw "Root launcher compilation failed" }
     Write-Host "    Compiled: $rootLauncher" -ForegroundColor Green
@@ -278,5 +278,5 @@ Write-Host "  Root Launcher    : $rootLauncher" -ForegroundColor White
 Write-Host "  Release Package  : $destRelease" -ForegroundColor White
 Write-Host "  App & Tray Icon  : Embedded multi-resolution 3D timer icon" -ForegroundColor White
 Write-Host ""
-Write-Host "  To run: Double-click PomodoroTimer.exe in the root of pomodoro-phoenix." -ForegroundColor Cyan
+Write-Host "  To run: Double-click PomodoroTimer.exe in the project root." -ForegroundColor Cyan
 Write-Host ""
