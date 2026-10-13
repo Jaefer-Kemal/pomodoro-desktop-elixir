@@ -38,6 +38,8 @@ npm-debug.log
 # Database files
 *.db
 *.db-*
+*.bak*
+*.bak
 
 # Release archives
 *.zip

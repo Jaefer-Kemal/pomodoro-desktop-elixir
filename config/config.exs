@@ -27,6 +27,9 @@ config :phoenix_live_view,
   # the attribute set on all root tags. Used for Phoenix.LiveView.ColocatedCSS.
   root_tag_attribute: "phx-r"
 
+config :phoenix_live_view, :colocated_assets,
+  disable_symlink_warning: true
+
 # Configure esbuild (the version is required)
 config :esbuild,
   version: "0.25.4",

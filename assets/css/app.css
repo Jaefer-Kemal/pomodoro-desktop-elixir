@@ -369,3 +369,82 @@ body {
   border: 1px solid rgba(16, 185, 129, 0.3);
 }
 
+/* ─── Vibe Waves & Sound Sanctuary Animations ─── */
+@keyframes vibe-ripple {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 0.35;
+  }
+  100% {
+    transform: scale(1.65);
+    opacity: 0;
+  }
+}
+
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-vibe-1 {
+  animation: vibe-ripple 3s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+}
+
+.animate-vibe-2 {
+  animation: vibe-ripple 3s cubic-bezier(0, 0.2, 0.8, 1) 1s infinite;
+}
+
+.animate-vibe-3 {
+  animation: vibe-ripple 3s cubic-bezier(0, 0.2, 0.8, 1) 2s infinite;
+}
+
+.animate-spin-disc {
+  transform-origin: 100px 100px;
+  transform-box: view-box;
+  animation: spin-slow 3.6s linear infinite;
+}
+
+.animate-spin-disc-paused {
+  transform-origin: 100px 100px;
+  transform-box: view-box;
+  animation: spin-slow 3.6s linear infinite;
+  animation-play-state: paused;
+}
+
+/* ─── Organic Radial Wave Animations ─── */
+@keyframes strandBounce {
+  0% { transform: scaleY(0.35); opacity: 0.45; }
+  50% { transform: scaleY(1.3); opacity: 1; }
+  100% { transform: scaleY(0.6); opacity: 0.7; }
+}
+
+@keyframes sonarBreathe {
+  0% { transform: scale(0.85); opacity: 0.6; }
+  50% { transform: scale(1.2); opacity: 0.25; }
+  100% { transform: scale(1.55); opacity: 0; }
+}
+
+.radial-strand,
+.radial-bar {
+  transform-origin: 100px 51px;
+  transform-box: view-box;
+  animation: strandBounce var(--duration, 1.8s) ease-in-out infinite alternate;
+  animation-delay: var(--delay, 0s);
+}
+
+.sonar-ring {
+  transform-origin: 100px 100px;
+  transform-box: view-box;
+  animation: sonarBreathe var(--duration, 3.2s) cubic-bezier(0.1, 0.8, 0.3, 1) infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+
+

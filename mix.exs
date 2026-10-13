@@ -28,7 +28,11 @@ defmodule PomodoroApp.MixProject do
 
   def cli do
     [
-      preferred_envs: [precommit: :test]
+      preferred_envs: [
+        "assets.deploy": :prod,
+        release: :prod,
+        precommit: :test
+      ]
     ]
   end
 

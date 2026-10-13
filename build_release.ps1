@@ -28,47 +28,110 @@ Write-Host "  App Directory:  $scriptDir" -ForegroundColor DarkGray
 Write-Host "  Dest Release:   $destRelease" -ForegroundColor DarkGray
 Write-Host ""
 
-# ── Step 1: Build production assets ──────────────────────────────────────────
-Write-Host '[1/6] Building production assets...' -ForegroundColor Yellow
+# ── Step 1: Clean digests and build production assets ────────────────────────
+Write-Host '[1/6] Building production assets (clean digest, tailwind, esbuild)...' -ForegroundColor Yellow
 $env:MIX_ENV = "prod"
 
-& mix compile --force
-if ($LASTEXITCODE -ne 0) { throw "mix compile failed" }
-
+& mix phx.digest.clean --all
 & mix assets.deploy
 if ($LASTEXITCODE -ne 0) { throw "mix assets.deploy failed" }
 
-# ── Step 2: Assemble Elixir Release ──────────────────────────────────────────
+# ── Step 2: Compile application in prod with fresh static assets ─────────────
 Write-Host ""
-Write-Host "[2/6] Assembling Elixir production release..." -ForegroundColor Yellow
+Write-Host '[2/6] Compiling application in prod...' -ForegroundColor Yellow
+& mix compile --force
+if ($LASTEXITCODE -ne 0) { throw "mix compile failed" }
+
+# Sync fresh priv/static into _build/prod
+$prodPrivStatic = "_build\prod\lib\$appName\priv\static"
+if (Test-Path $prodPrivStatic) {
+    Copy-Item -Path "priv\static\*" -Destination $prodPrivStatic -Recurse -Force
+}
+
+# ── Step 3: Assemble Elixir Release ──────────────────────────────────────────
+Write-Host ""
+Write-Host "[3/6] Assembling Elixir production release..." -ForegroundColor Yellow
 if (Test-Path $relProdDir) {
     Remove-Item -Recurse -Force $relProdDir
 }
 & mix release --overwrite
 if ($LASTEXITCODE -ne 0) { throw "mix release failed" }
 
-# ── Step 3: Run Database Migrations & Seeds ───────────────────────────────────
+# Directly ensure release package has fresh priv/static files
+$releaseAppPriv = Get-ChildItem "$relProdDir\lib" -Filter "$appName-*" | Select-Object -First 1
+if ($releaseAppPriv) {
+    Copy-Item -Path "priv\static\*" -Destination "$($releaseAppPriv.FullName)\priv\static" -Recurse -Force
+}
+
+# ── Step 4: Run Database Migrations & Seeds (Safeguarded) ──────────────────────
 Write-Host ""
-Write-Host "[3/6] Running release database migrations & seeds..." -ForegroundColor Yellow
+Write-Host "[4/6] Safeguarding database & running release migrations..." -ForegroundColor Yellow
+
+# Safety Backup: Back up existing production database in %APPDATA%
+$appDataDir = Join-Path $env:APPDATA "PomodoroTimer"
+$prodDb = Join-Path $appDataDir "pomodoro.db"
+if (Test-Path $prodDb) {
+    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    $backupDb = Join-Path $appDataDir "pomodoro.db.bak_$timestamp"
+    Copy-Item -Path $prodDb -Destination $backupDb -Force
+    Write-Host "    [Safety] Backed up production database to: $backupDb" -ForegroundColor Cyan
+}
+
+# Safety Backup: Back up dev database if present
+$devDb = Join-Path $scriptDir "pomodoro_app_dev.db"
+if (Test-Path $devDb) {
+    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+    $backupDevDb = Join-Path $scriptDir "pomodoro_app_dev.db.bak_$timestamp"
+    Copy-Item -Path $devDb -Destination $backupDevDb -Force
+    Write-Host "    [Safety] Backed up dev database to: $backupDevDb" -ForegroundColor Cyan
+}
+
 $relBat = Join-Path $relProdDir "bin\$appName.bat"
 if (Test-Path $relBat) {
     & $relBat eval "PomodoroApp.Release.migrate()"
     & $relBat eval "PomodoroApp.Release.seed()"
-    Write-Host "    Migrations and 8-week seeds initialized successfully." -ForegroundColor Green
+    Write-Host "    Migrations executed safely; user data and progress preserved." -ForegroundColor Green
 }
 
-# ── Step 4: Deploy Release to pomodoro-phoenix Root ─────────────────────────
+# ── Step 5: Deploy Release to pomodoro-phoenix Root ─────────────────────────
 Write-Host ""
-Write-Host "[4/6] Deploying release package to pomodoro-phoenix root..." -ForegroundColor Yellow
+Write-Host "[5/6] Deploying release package to pomodoro-phoenix root..." -ForegroundColor Yellow
 
 if (Test-Path $destRelease) {
+    Write-Host "    Stopping any running PomodoroTimer instances..." -ForegroundColor DarkGray
+    Get-Process -Name erl, beam, werl, epmd, PomodoroTimer -ErrorAction SilentlyContinue |
+        Where-Object { 
+            ($_.Path -and $_.Path.StartsWith($destRelease, [StringComparison]::OrdinalIgnoreCase)) -or
+            ($_.Name -eq "PomodoroTimer")
+        } |
+        Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Milliseconds 800
+
     Write-Host "    Cleaning existing $destRelease..." -ForegroundColor DarkGray
-    Remove-Item -Recurse -Force $destRelease
+    $cleaned = $false
+    for ($i = 0; $i -lt 3; $i++) {
+        try {
+            Remove-Item -Recurse -Force $destRelease -ErrorAction Stop
+            $cleaned = $true
+            break
+        } catch {
+            Start-Sleep -Milliseconds 1000
+        }
+    }
+    if (-not $cleaned) {
+        Remove-Item -Recurse -Force $destRelease -ErrorAction SilentlyContinue
+    }
 }
 New-Item -ItemType Directory -Path $destRelease -Force | Out-Null
 
 Write-Host "    Copying release binaries and runtime..." -ForegroundColor DarkGray
 Copy-Item -Path "$relProdDir\*" -Destination $destRelease -Recurse -Force
+
+# Ensure destination release lib also has fresh priv/static
+$destAppPriv = Get-ChildItem "$destRelease\lib" -Filter "$appName-*" | Select-Object -First 1
+if ($destAppPriv) {
+    Copy-Item -Path "priv\static\*" -Destination "$($destAppPriv.FullName)\priv\static" -Recurse -Force
+}
 
 # Copy music_pomodoro into release so standalone player has all tracks
 $musicSource = Join-Path $scriptDir "music_pomodoro"
@@ -87,9 +150,9 @@ if (Test-Path $pngPath) {
     Copy-Item -Path $pngPath -Destination (Join-Path $destRelease "bin\pomodoro.png") -Force
 }
 
-# ── Step 5: Compile Native C# Launcher with Embedded Icon ────────────────────
+# ── Step 6: Compile Native C# Launcher with Embedded Icon ────────────────────
 Write-Host ""
-Write-Host "[5/6] Compiling native launcher with embedded 3D timer icon..." -ForegroundColor Yellow
+Write-Host "[6/6] Compiling native launcher with embedded 3D timer icon..." -ForegroundColor Yellow
 
 $csharpSource = @"
 using System;

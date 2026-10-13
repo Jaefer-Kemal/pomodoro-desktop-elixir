@@ -1,13 +1,11 @@
 alias PomodoroApp.Repo
 alias PomodoroApp.Schedule.{StudyBlock, WeeklyReview}
 
-# Clear existing seeded blocks if needed
-Repo.delete_all(StudyBlock)
-Repo.delete_all(WeeklyReview)
-
 # ── Seed 8 Weekly Reviews (Starting October 14, 2026) ──
-reviews = [
-  %{
+# Only seed if no weekly reviews exist yet, preserving user progress and checklist state
+if Repo.aggregate(WeeklyReview, :count) == 0 do
+  reviews = [
+    %{
     week_number: 1,
     week_label: "Week 1 (Oct 14 – Oct 20) · Recursion & Elixir OTP",
     deliverable_notes: "Small supervised application that crashes and restarts cleanly"
@@ -50,23 +48,25 @@ reviews = [
 ]
 
 for r <- reviews do
-  Repo.insert!(%WeeklyReview{
-    week_number: r.week_number,
-    week_label: r.week_label,
-    deliverable_notes: r.deliverable_notes,
-    concept_explained: false,
-    problems_solved: false,
-    erlang_code_run: false,
-    csharp_progress: false,
-    book_ideas_captured: false,
-    next_monday_task_selected: false,
-    completed: false
-  })
+    Repo.insert!(%WeeklyReview{
+      week_number: r.week_number,
+      week_label: r.week_label,
+      deliverable_notes: r.deliverable_notes,
+      concept_explained: false,
+      problems_solved: false,
+      erlang_code_run: false,
+      csharp_progress: false,
+      book_ideas_captured: false,
+      next_monday_task_selected: false,
+      completed: false
+    })
+  end
 end
 
 # ── Seed Daily Study Blocks (Mon=1 through Sat=6, Sun=7) ──
-# Monday to Saturday common morning blocks:
-study_days = 1..6
+# Only seed if no study blocks exist yet, preserving user schedule and progress
+if Repo.aggregate(StudyBlock, :count) == 0 do
+  study_days = 1..6
 
 for day <- study_days do
   # 8:00 - 10:00: CodeIntuition
@@ -207,17 +207,18 @@ for day <- study_days do
   end
 end
 
-# Sunday (Day 7): Rest Day
-Repo.insert!(%StudyBlock{
-  day_of_week: 7,
-  start_time: ~T[00:00:00],
-  end_time: ~T[23:59:59],
-  subject: "Rest Day",
-  title: "Sunday Rest & Recharge",
-  color: "#10b981",
-  icon: "sparkles",
-  description: "No planned study. Relax, recover, and prepare for Monday with clear energy.",
-  is_rest_block: true
-})
+  # Sunday (Day 7): Rest Day
+  Repo.insert!(%StudyBlock{
+    day_of_week: 7,
+    start_time: ~T[00:00:00],
+    end_time: ~T[23:59:59],
+    subject: "Rest Day",
+    title: "Sunday Rest & Recharge",
+    color: "#10b981",
+    icon: "sparkles",
+    description: "No planned study. Relax, recover, and prepare for Monday with clear energy.",
+    is_rest_block: true
+  })
+end
 
-IO.puts("Successfully seeded study blocks and weekly reviews!")
+IO.puts("Database seeds checked / verified without overwriting existing data.")

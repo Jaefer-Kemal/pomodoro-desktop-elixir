@@ -101,6 +101,17 @@ window.addEventListener("phx:set_music_volume", (e) => {
   }
 });
 
+// Instant client-side volume response without waiting for network roundtrip
+document.addEventListener("input", (e) => {
+  if (e.target && (e.target.id === "music-volume-slider" || e.target.classList.contains("music-vol-slider"))) {
+    const val = parseFloat(e.target.value);
+    if (!isNaN(val)) {
+      musicAudio.volume = Math.max(0, Math.min(1, val));
+      localStorage.setItem("pomo_music_volume", val.toString());
+    }
+  }
+});
+
 // ── Music Player ──
 // Separate audio element for background music (plays alongside alarm)
 const musicAudio = new Audio();
@@ -122,13 +133,30 @@ musicAudio.addEventListener("ended", () => {
 window.addEventListener("phx:music_play", (e) => {
   const { src } = e.detail;
   if (src) {
-    // Fade out briefly then switch
-    musicAudio.src = src;
-    musicAudio.currentTime = 0;
+    // Only reload source if it changed
+    try {
+      const currentUrl = new URL(musicAudio.src || "http://localhost");
+      const newUrl = new URL(src, window.location.origin);
+      if (currentUrl.pathname !== newUrl.pathname) {
+        musicAudio.src = src;
+        musicAudio.currentTime = 0;
+      }
+    } catch {
+      musicAudio.src = src;
+      musicAudio.currentTime = 0;
+    }
     musicAudio.volume = parseFloat(localStorage.getItem("pomo_music_volume") || "0.35");
     musicAudio.play().catch(() => {
-      console.warn("Music autoplay blocked — interact with the app to enable.");
+      console.warn("Music playback pending user interaction.");
     });
+  } else if (musicAudio.src) {
+    musicAudio.play().catch(() => {});
+  }
+});
+
+window.addEventListener("phx:music_resume", () => {
+  if (musicAudio.src) {
+    musicAudio.play().catch(() => {});
   }
 });
 
@@ -139,7 +167,6 @@ window.addEventListener("phx:music_pause", () => {
 window.addEventListener("phx:music_stop", () => {
   musicAudio.pause();
   musicAudio.currentTime = 0;
-  musicAudio.src = "";
 });
 
 // Show progress bar on live navigation and form submits

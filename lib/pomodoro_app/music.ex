@@ -34,6 +34,16 @@ defmodule PomodoroApp.Music do
     GenServer.call(__MODULE__, {:next_track, category})
   end
 
+  @doc "Returns the previous track for a given category, cycling backwards through the playlist."
+  def prev_track(category) do
+    GenServer.call(__MODULE__, {:prev_track, category})
+  end
+
+  @doc "Returns all tracks categorized with display names."
+  def list_catalog do
+    GenServer.call(__MODULE__, :list_catalog)
+  end
+
   @doc "Resets and reshuffles the playlist for a category."
   def reshuffle(category) do
     GenServer.cast(__MODULE__, {:reshuffle, category})
@@ -89,6 +99,54 @@ defmodule PomodoroApp.Music do
       new_indices = Map.put(state.indices, category, idx + 1)
       {:reply, track, %{state | indices: new_indices}}
     end
+  end
+
+  @impl true
+  def handle_call({:prev_track, category}, _from, state) do
+    playlist = Map.get(state.playlists, category, [])
+
+    if playlist == [] do
+      fallback = Map.get(state.playlists, :focus, [])
+
+      if fallback == [] do
+        {:reply, nil, state}
+      else
+        len = length(fallback)
+        idx = Map.get(state.indices, :focus, 0)
+        new_idx = rem(idx - 1 + len, len)
+        track = Enum.at(fallback, new_idx)
+        new_indices = Map.put(state.indices, :focus, new_idx)
+        {:reply, track, %{state | indices: new_indices}}
+      end
+    else
+      len = length(playlist)
+      idx = Map.get(state.indices, category, 0)
+      new_idx = rem(idx - 1 + len, len)
+      track = Enum.at(playlist, new_idx)
+      new_indices = Map.put(state.indices, category, new_idx)
+      {:reply, track, %{state | indices: new_indices}}
+    end
+  end
+
+  @impl true
+  def handle_call(:list_catalog, _from, state) do
+    catalog =
+      Enum.map(state.tracks, fn {filename, category} ->
+        clean_name =
+          filename
+          |> String.replace(".mp3", "")
+          |> String.replace(~r/[_\-]+/, " ")
+          |> String.replace(~r/\(.*\)/, "")
+          |> String.trim()
+
+        %{
+          filename: filename,
+          name: clean_name,
+          category: category
+        }
+      end)
+
+    {:reply, catalog, state}
   end
 
   @impl true
