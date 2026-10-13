@@ -41,7 +41,7 @@ defmodule PomodoroApp.MixProject do
       pomodoro_app: [
         include_executables_for: [:windows],
         applications: [runtime_tools: :permanent],
-        steps: [:assemble, :tar]
+        steps: [:assemble]
       ]
     ]
   end

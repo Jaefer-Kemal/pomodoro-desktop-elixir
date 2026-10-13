@@ -53,6 +53,8 @@ defmodule PomodoroApp.Application do
          # Setting a window size suitable for timer widget, schedule, and reviews
          size: {420, 680},
          min_size: {400, 620},
+         icon: "static/images/pomodoro.png",
+         taskbar_icon: "static/images/pomodoro.png",
 
          # wxNO_BORDER (2097152) + wxCLIP_CHILDREN (4194304) = 6291456
          style: 6_291_456,
