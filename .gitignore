@@ -42,4 +42,8 @@ npm-debug.log
 # Release archives
 *.zip
 
+# Audio tracks directory (add your own MP3s locally)
+/music_pomodoro/
+
+
 
