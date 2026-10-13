@@ -29,24 +29,40 @@ Write-Host "  Dest Release:   $destRelease" -ForegroundColor DarkGray
 Write-Host ""
 
 # ── Step 1: Clean digests and build production assets ────────────────────────
-Write-Host '[1/6] Building production assets (clean digest, tailwind, esbuild)...' -ForegroundColor Yellow
-$env:MIX_ENV = "prod"
+Write-Host '[1/6] Building production assets (purging old digests, compiling Tailwind v4 & Esbuild)...' -ForegroundColor Yellow
 
-& mix phx.digest.clean --all
-& mix assets.deploy
-if ($LASTEXITCODE -ne 0) { throw "mix assets.deploy failed" }
+# Purge any stale cache manifest and digested css/js from priv/static
+Remove-Item -Path "priv\static\cache_manifest.json*" -ErrorAction SilentlyContinue
+Remove-Item -Path "priv\static\assets\css\app-*.css*" -ErrorAction SilentlyContinue
+Remove-Item -Path "priv\static\assets\js\app-*.js*" -ErrorAction SilentlyContinue
+
+# Ensure clean build in dev for tailwind & esbuild
+$env:MIX_ENV = "dev"
+& mix tailwind pomodoro_app --minify
+if ($LASTEXITCODE -ne 0) { throw "tailwind compilation failed" }
+
+& mix esbuild pomodoro_app --minify
+if ($LASTEXITCODE -ne 0) { throw "esbuild compilation failed" }
+
+# Digest fresh assets for production
+$env:MIX_ENV = "prod"
+& mix phx.digest
+if ($LASTEXITCODE -ne 0) { throw "mix phx.digest failed" }
 
 # ── Step 2: Compile application in prod with fresh static assets ─────────────
 Write-Host ""
 Write-Host '[2/6] Compiling application in prod...' -ForegroundColor Yellow
+
+# Purge stale priv directory in _build/prod so fresh digest manifest is embedded
+Remove-Item -Recurse -Force "_build\prod\lib\$appName\priv" -ErrorAction SilentlyContinue
+
 & mix compile --force
 if ($LASTEXITCODE -ne 0) { throw "mix compile failed" }
 
-# Sync fresh priv/static into _build/prod
+# Explicitly copy fresh priv/static into _build/prod
 $prodPrivStatic = "_build\prod\lib\$appName\priv\static"
-if (Test-Path $prodPrivStatic) {
-    Copy-Item -Path "priv\static\*" -Destination $prodPrivStatic -Recurse -Force
-}
+New-Item -ItemType Directory -Path $prodPrivStatic -Force | Out-Null
+Copy-Item -Path "priv\static\*" -Destination $prodPrivStatic -Recurse -Force
 
 # ── Step 3: Assemble Elixir Release ──────────────────────────────────────────
 Write-Host ""
@@ -57,7 +73,7 @@ if (Test-Path $relProdDir) {
 & mix release --overwrite
 if ($LASTEXITCODE -ne 0) { throw "mix release failed" }
 
-# Directly ensure release package has fresh priv/static files
+# Directly ensure release package has fresh priv/static files and cache_manifest.json
 $releaseAppPriv = Get-ChildItem "$relProdDir\lib" -Filter "$appName-*" | Select-Object -First 1
 if ($releaseAppPriv) {
     Copy-Item -Path "priv\static\*" -Destination "$($releaseAppPriv.FullName)\priv\static" -Recurse -Force

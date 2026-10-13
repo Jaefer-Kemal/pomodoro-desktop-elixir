@@ -50,8 +50,8 @@ defmodule PomodoroApp.Application do
          app: :pomodoro_app,
          id: PomodoroAppWindow,
          title: "Pomodoro App",
-         # Setting a window size suitable for timer widget, schedule, and reviews
-         size: {420, 680},
+         # Setting a window size suitable for executive dashboard with responsive collapse to compact widget
+         size: {860, 680},
          min_size: {400, 620},
          icon: "static/images/pomodoro.png",
          taskbar_icon: "static/images/pomodoro.png",
